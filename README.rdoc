@@ -1,6 +1,6 @@
 = trac2bex
 
-Description goes here.
+Tools for importing tickets from trac+agilo into Billings. Currently may be very specific to my own needs in parts
 
 == Copyright
 

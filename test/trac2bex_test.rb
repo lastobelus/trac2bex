@@ -1,7 +1,7 @@
 require 'test_helper'
 
 class Trac2bexTest < Test::Unit::TestCase
-  should "probably rename this file and start testing for real" do
-    flunk "hey buddy, you should probably rename this file and start testing for real"
+  should "get a report from trac" do
   end
 end
+
