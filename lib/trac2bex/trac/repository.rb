@@ -8,13 +8,21 @@ module Trac2bex
       attr_accessor :url
       attr_accessor :agent
       attr_accessor :user
-      attr_accessor :password
       attr_accessor :ticket_columns
+      attr_accessor :auth
       
       DefaultTicketColumns = %w{id time changetime component severity priority owner reporter cc version milestone status resolution summary description}
       
-      def initialize(url)
-        @url = url
+      def initialize(conf)
+        case conf
+        when String,URI
+          @url = conf
+        when Hash
+          @url = conf[:url]
+          @user = conf[:user]
+          @password = conf[:password]
+          @auth = conf[:auth]
+        end
       end
       
       def report(id, params={})
@@ -66,8 +74,21 @@ module Trac2bex
       
       def authenticate
         @agent = WWW::Mechanize.new
-        @agent.basic_auth(user, password) if user && password
-        @agent.get(url+'/login')
+        pass = password
+        case auth
+        when :basic, nil
+          @agent.basic_auth(user, pass) if user && pass
+          @agent.get(url+'/login')
+        when :form
+          page = @agent.get(url+'/login')
+          # form = page.form_with(:id => 'acctmgr_loginform')
+          # Mechanize can't do form_with(:id)????
+          page.forms.each{|f| puts "f.form_node.attributes['id']: #{f.form_node.attributes['id'].inspect}"}
+          form = page.forms.detect{|f| f.form_node.attributes['id'].value == 'acctmgr_loginform'}
+          form.field_with(:name => 'user').value = user
+          form.field_with(:name => 'password').value = pass
+          @agent.submit(form)
+        end
       end
       
       def ticket_columns
@@ -78,6 +99,18 @@ module Trac2bex
         columns ||= ticket_columns
         query(:col => columns)
       end
+      
+      def password
+        if @password == :keychain
+          require 'uri'
+          uri = URI.parse(@url)
+          match = `security 2>&1 >/dev/null find-internet-password -g -s #{uri.host} -a #{user}`.match(/password: "([^"]+)"/)
+          match[1]
+        else
+          @password
+        end
+      end
+        
     end
   end
 end

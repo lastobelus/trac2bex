@@ -15,28 +15,43 @@ module Trac2bex
       f_table.each{|row| arr << row.to_hash}
     end
 
-# %w{id time changetime component severity priority owner reporter cc version milestone status resolution summary description}
-# %w{type totalhours i_links hours remaining_time rd_points estimatedhours sprint ranking}
-# 
-
     # currently agilo/sage repository specific -- break apart when have time
     def map_ticket_hash_to_timeslip(ticket_hash, default_attrs={})
+      ticket = Trac2bex::OpenStructWithId.new(ticket_hash)
+      ticket.id = ticket.id.to_s
       attrs = {
         "foreignAppName" => "trac",
         "foreignAppEntityName" => "ticket",
         "category.name" => 'Trac Ticket',
-        "activeForTiming" => true
+        "activeForTiming" => true,
+        "name" => "##{ticket.id}: #{ticket.summary}",
+        "foreignAppImportID" => "#{ticket.id}",
+        "dueDate" => Time.at(ticket.sprint_end),
+        "createDate" => Time.now,
+        "comment" => "#{ticket.description}"
       }.merge(default_attrs)
-      
-      timeslip = Trac2bex::Billings::Timeslip.new(attrs)
 
-      timeslip['foreignAppImportID'] = ticket_hash[:id]
-      timeslip['dueDate'] = Time.at(ticket_hash[:sprint_end])
-      timeslip['createDate'] = Time.now
-      timeslip['name'] = "##{ticket_hash[:id]}: #{ticket_hash[:summary]}"
-      timeslip['comment'] = ticket_hash[:description]
-      timeslip
+      sprint = ticket.sprint
+      def sprint.number
+        m=self.match(/Sprint (\d+)/i)
+        puts "m.inspect"
+        m[1]
+      end
+      
+      interpolated_attrs = {}
+      attrs.each_pair do |k, v|
+        if v.is_a?(String) and (match = v.match(/^%\{(.*)\}$/))
+          interpolated_attrs[k] = eval(match[1])
+        else
+          interpolated_attrs[k] = v
+        end
+      end
+      
+      timeslip = Trac2bex::Billings::Timeslip.new(interpolated_attrs)
+
     end
 
   end
+  
+  
 end
